@@ -129,7 +129,7 @@ local new = function(config)
     end
 
     local _meta_index = function(app, key)
-        local rack = getRack(key)
+        local rack = racks[key]
         if rack then
             return rack
         end

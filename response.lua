@@ -32,6 +32,8 @@ end
 _M.write = function(self, body, replace)
     replace = replace or false
     local store = self:store()
+
+    ngx.say('body:', body)
     
     if replace then
         store.body = {body}
