@@ -17,10 +17,9 @@ local coreRacks = {
     response = response,
 }
 
-_APP.errHandler = function(app, err)
+_APP.handleErr = function(app, err)
     ngx.say(err)
-
-    self:die(1)
+    self:die(500)
 end
 
 local addHooks = function(app, hks)
@@ -76,21 +75,19 @@ _APP.resource = function(self, path, mod)
 end
 
 _APP.call = function(self, ctx)
-    self:applyHook('before.route')
 
     local req = self:getRack('request')
     local route = self:getRack('router'):matchRoute(req)
 
-    if not route then self:die(404) end
-
+    if not route then self:die(404, 'router not found') end
 
     self:applyHook('before.request')
     route:dispatch(req)
     self:applyHook('after.request')
-    self:applyHook('after.route')
 end
 
-_APP.die = function(self, status)
+_APP.die = function(self, status, msg)
+    --ngx.say(msg)
     ngx.exit(status)
 end
 
@@ -109,12 +106,6 @@ local new = function(config)
 
     local getRack = function(app, name)
         return racks[name]
-    end
-
-    local printRacks = function(app)
-        for name, val in pairs(racks) do
-            ngx.say(name)
-        end
     end
 
     local addRack = function(app, name, rack)
@@ -160,8 +151,7 @@ local new = function(config)
             for hk in ipairs(hk) do
                 local stat, err = pcall(hk, app)
                 if not stat then
-                    -- todo: to die or not to die, it's a question
-                    app:errHandler(err)
+                    app:handleErr(err)
                     break
                 end
             end
@@ -189,7 +179,6 @@ local new = function(config)
     local register = function(app, mw)
         if type(mw.call) ~= 'function'
             and type(mw) ~= 'table' then
-
             error('invalid mud')
         end
 
@@ -206,7 +195,7 @@ local new = function(config)
         for _, m in ipairs(mud) do
             local stat, err = pcall(m.call, m)
             if not stat then
-                racks['response']:write(err)
+                app:handleErr(err)
                 break
             end
         end
@@ -223,7 +212,6 @@ local new = function(config)
         run      = run,
         applyHook= applyHook, 
         finalize = finalize,
-        printRacks = printRacks,
     }, {__index = _meta_index})
 
     initConfig(app, config)
