@@ -1,28 +1,23 @@
-local ngx = ngx
+local ngx = require('ngx')
 local insert = table.insert
 local ipairs = ipairs
 local pairs = pairs
 local unpack = unpack
 local ngxctx = ngx.ctx
 
-local router = require('mf.router')
-local request = require('mf.request')
-local response = require('mf.response')
+local router = require('mf.racks.router')
+local request = require('mf.racks.request')
+local response = require('mf.racks.response')
 
-local _APP = {}
+local _M = {}
 
-local coreRacks = {
+local _core_racks = {
     router = router,
     request = request,
     response = response,
 }
 
-_APP.handleErr = function(app, err)
-    ngx.say(err)
-    self:die(500)
-end
-
-local addHooks = function(app, hks)
+local _add_hooks = function(app, hks)
     if type(hks) ~= 'table' then
         return
     end
@@ -32,7 +27,7 @@ local addHooks = function(app, hks)
     end
 end
 
-local initConfig = function(app, config)
+local _init_config = function(app, config)
     if type(config) == 'table' then
         for key, val in pairs(config) do 
             app:config(key, val)
@@ -42,7 +37,7 @@ end
 
 local _is_rack = function (rack)
     if type(rack) == 'table' 
-       and type(rack.new) =='function' 
+       and type(rack.init) =='function' 
     then
         return true
     end
@@ -50,48 +45,53 @@ local _is_rack = function (rack)
     return false
 end
 
-local setCoreRacks = function(app)
-    if type(coreRacks) == 'table' then
-        for name, rack in pairs(coreRacks) do 
-            app:addRack(name, rack)
+local _set_core_racks = function(app)
+    if type(_core_racks) == 'table' then
+        for name, rack in pairs(_core_racks) do 
+            app:add(name, rack)
         end
     end
 end
 
-_APP.get = function(self, uri, act)
-    self:getRack('router'):get(uri, act)
+_M.handleErr = function(app, err)
+    ngx.say(err)
+    self:die(500)
 end
 
-_APP.post = function(self, uri, act)
-    self:getRack('router'):post(uri, act)
+_M.get = function(self, uri, act)
+    self:get('router'):get(uri, act)
 end
 
-_APP.map = function(self, uri, methods, act)
-    self:getRack('router'):some(uri, methods, act)
+_M.post = function(self, uri, act)
+    self:get('router'):post(uri, act)
 end
 
-_APP.resource = function(self, path, mod)
-    self:getRack('router'):resource(path, mod)
+_M.map = function(self, uri, methods, act)
+    self:get('router'):some(uri, methods, act)
 end
 
-_APP.call = function(self, ctx)
+_M.resource = function(self, path, mod)
+    self:get('router'):resource(path, mod)
+end
 
-    local req = self:getRack('request')
-    local route = self:getRack('router'):matchRoute(req)
+_M.call = function(self, ctx)
+
+    local req = self:get('request')
+    local route = self:get('router'):matchRoute(req)
 
     if not route then self:die(404, 'router not found') end
 
-    self:applyHook('before.request')
+    self:apply('before.request')
     route:dispatch(req)
-    self:applyHook('after.request')
+    self:apply('after.request')
 end
 
-_APP.die = function(self, status, msg)
+_M.die = function(self, status, msg)
     --ngx.say(msg)
     ngx.exit(status)
 end
 
-_APP.context = function(name)
+_M.context = function(self, name)
     if type(ngxctx[name]) ~= 'table' then
         ngxctx[name] = {}
     end
@@ -109,14 +109,12 @@ local new = function(config)
     end
 
     local addRack = function(app, name, rack)
-        --if rack.inited then
-            --racks[name] = rack
-        --else
+        if not _is_rack(rack) then error('invalid rack') end
+
         local rack = rack.init(app)
         if rack then
             racks[name] = rack
         end
-        --end
     end
 
     local _meta_index = function(app, key)
@@ -125,7 +123,7 @@ local new = function(config)
             return rack
         end
 
-        local val = _APP[key]
+        local val = _M[key]
         if val then
             app[key] = val
         end
@@ -146,9 +144,9 @@ local new = function(config)
     end
 
     local applyHook = function(app, name)
-        local hk = hooks[name]
-        if type(hk) == 'table' then
-            for hk in ipairs(hk) do
+        local hks = hooks[name]
+        if type(hks) == 'table' then
+            for _, hk in ipairs(hks) do
                 local stat, err = pcall(hk, app)
                 if not stat then
                     app:handleErr(err)
@@ -177,13 +175,12 @@ local new = function(config)
 
 
     local register = function(app, mw)
-        if type(mw.call) ~= 'function'
-            and type(mw) ~= 'table' then
+        if type(mw) ~= 'table' and type(mw.call) ~= 'function' then
             error('invalid mud')
         end
 
         mw.app = app
-        addHooks(app, mw.hooks)
+        _add_hooks(app, mw.hooks)
         insert(mud, 1, mw)
     end
 
@@ -204,18 +201,18 @@ local new = function(config)
     end
 
     local app = setmetatable({
-        getRack  = getRack,
-        addRack  = addRack,
-        config   = config,
-        register = register,
-        getMud   = getMud,
-        run      = run,
-        applyHook= applyHook, 
+        get = getRack, 
+        add  = addRack, 
+        config   = config,  
+        register = register, 
+        run      = run,   
+        apply = applyHook, 
+        hook = hook,  
         finalize = finalize,
     }, {__index = _meta_index})
 
-    initConfig(app, config)
-    setCoreRacks(app)
+    _init_config(app, config)
+    _set_core_racks(app)
 
     app:register(app)
     

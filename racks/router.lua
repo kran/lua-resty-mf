@@ -1,4 +1,4 @@
-local ngx          = require"ngx"
+local ngx          = require("ngx")
 local setmetatable = setmetatable
 local insert       = table.insert
 local pairs        = pairs

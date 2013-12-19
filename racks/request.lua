@@ -1,4 +1,4 @@
-local ngx = ngx
+local ngx = require('ngx')
 
 local _M = {}
 

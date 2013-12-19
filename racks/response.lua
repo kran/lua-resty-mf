@@ -7,7 +7,7 @@ local init = function(app)
     local resp = {
         app = app,
         store = function(self)
-            return app.context(_key)
+            return app:context(_key)
         end,
     }
 
