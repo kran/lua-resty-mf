@@ -59,25 +59,25 @@ _M.handleErr = function(app, err)
 end
 
 _M.get = function(self, uri, act)
-    self:get('router'):get(uri, act)
+    self:rack('router'):get(uri, act)
 end
 
 _M.post = function(self, uri, act)
-    self:get('router'):post(uri, act)
+    self:rack('router'):post(uri, act)
 end
 
 _M.map = function(self, uri, methods, act)
-    self:get('router'):some(uri, methods, act)
+    self:rack('router'):some(uri, methods, act)
 end
 
 _M.resource = function(self, path, mod)
-    self:get('router'):resource(path, mod)
+    self:rack('router'):resource(path, mod)
 end
 
 _M.call = function(self, ctx)
 
-    local req = self:get('request')
-    local route = self:get('router'):matchRoute(req)
+    local req = self:rack('request')
+    local route = self:rack('router'):matchRoute(req)
 
     if not route then self:die(404, 'router not found') end
 
@@ -201,7 +201,7 @@ local new = function(config)
     end
 
     local app = setmetatable({
-        get = getRack, 
+        rack = getRack, 
         add  = addRack, 
         config   = config,  
         register = register, 
