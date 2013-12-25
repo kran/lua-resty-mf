@@ -110,11 +110,7 @@ local new = function(config)
 
     local addRack = function(app, name, rack)
         if not _is_rack(rack) then error('invalid rack') end
-
-        local rack = rack.init(app)
-        if rack then
-            racks[name] = rack
-        end
+        racks[name] = rack
     end
 
     local _meta_index = function(app, key)
@@ -159,7 +155,7 @@ local new = function(config)
     local finalize = function(app)
         --clean up & write output
         local resp = racks['response']
-        local stat, headers, body = resp:finalize()
+        local stat, headers, body = resp():finalize()
         --todo set headers, cookies & sessions
         ngx.say(body)
     end

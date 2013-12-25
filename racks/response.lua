@@ -1,17 +1,17 @@
-local _M = { }
+local _M = {}
 local insert = table.insert
 local concat = table.concat
 local _key = 'response'
 
-local init = function(app)
-    local resp = {
-        app = app,
-        store = function(self, name)
-            return app:context(_key)
-        end,
-    }
+local initialize = function(app)
+    if not app.context[_key] then
+        app.context[_key] = setmetatable({ app = app }, {
+            __index = _M, 
+            __call = initialize,
+        })
+    end
 
-    return setmetatable(resp, {__index = _M})
+    return app.context[_key]
 end
 
 _M.status = function(self)
@@ -82,5 +82,4 @@ _M.finalize = function(self)
     return status, headers, body
 end
 
-
-return {init = init}
+return initialize

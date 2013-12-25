@@ -13,7 +13,8 @@ local init = function(app)
 
     return setmetatable(req, {
         __index = _M,
-        __call = _meta_call
+        __call = _meta_call,
+        __newindex = function() error('denied') end
     })
 end
 
